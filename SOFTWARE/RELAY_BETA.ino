@@ -109,8 +109,8 @@ void loop() {
   StaticJsonBuffer<200> jsonBuffer;
   zero_countdown++;
   if (Serial.available()) {
-    if (symb != '\n') {
-      symb = Serial.read();
+    symb = Serial.read();
+    if (symb != '$') {
       receive += symb;
     } else {
       JsonObject& root = jsonBuffer.parseObject(receive);
@@ -148,8 +148,8 @@ void loop() {
   //      Serial.print(inter);
   //      Serial.println();
   //
-  if (ctrl_l < 20) ctrl_l = 0;
-  if (ctrl_r < 20) ctrl_r = 0;
+  if (abs(ctrl_l) < 5) ctrl_l = 0;
+  if (abs(ctrl_r) < 5) ctrl_r = 0;
   
 
   if ((front_r)&&(ctrl_r < 0)){
