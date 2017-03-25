@@ -38,5 +38,5 @@ void loop() {
     prev_left = left;
     prev_right = right;
   }
-  delay(100);
+  delay(10);
 }
