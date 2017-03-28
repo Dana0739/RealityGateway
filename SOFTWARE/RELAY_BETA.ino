@@ -82,7 +82,7 @@ void turnOn(int x) {
 void direct (int side, int head) {
   if (side == 0){
     digitalWrite(pow_l, 0);
-    //delay(5);
+    delay(2);
     if (head == 0){
       digitalWrite(ctr_l_p, 0);
       digitalWrite(ctr_l_n, 1);
@@ -93,7 +93,7 @@ void direct (int side, int head) {
     digitalWrite(pow_l, 1);
   } else {
     digitalWrite(pow_r, 0);
-    //delay(5);
+    delay(2);
     digitalWrite(pow_r, 0);
     if (head == 0){
       digitalWrite(ctr_r_p, 0);
