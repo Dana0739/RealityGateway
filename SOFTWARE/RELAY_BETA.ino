@@ -72,6 +72,9 @@ void setup() {
 
   front_r = true;
   front_l = true;
+
+  zero_l = analogRead(0);
+  zero_r = analogRead(2);
 }
 
 void turnOff(int x) {
@@ -85,13 +88,13 @@ void turnOn(int x) {
 void direct (int side, int head) {
   if (side == 0){
     digitalWrite(pow_l, 0);
-    //delay(2);
+    //delay(1);
     if (head == 0){
-      digitalWrite(ctr_l_p, 0);
-      digitalWrite(ctr_l_n, 1);
+      digitalWrite(abs(ctr_l_p), 0);
+      digitalWrite(abs(ctr_l_n), 1);
     } else {
-      digitalWrite(ctr_l_p, 1);
-      digitalWrite(ctr_l_n, 0);
+      digitalWrite(abs(ctr_l_p), 1);
+      digitalWrite(abs(ctr_l_n), 0);
     }
     digitalWrite(pow_l, 1);
   } else {
@@ -99,35 +102,39 @@ void direct (int side, int head) {
     //delay(2);
     digitalWrite(pow_r, 0);
     if (head == 0){
-      digitalWrite(ctr_r_p, 0);
-      digitalWrite(ctr_r_n, 1);
+      digitalWrite(abs(ctr_r_p), 0);
+      digitalWrite(abs(ctr_r_n), 1);
     } else {
-      digitalWrite(ctr_r_p, 1);
-      digitalWrite(ctr_r_n, 0);
+      digitalWrite(abs(ctr_r_p), 1);
+      digitalWrite(abs(ctr_r_n), 0);
     }
     digitalWrite(pow_r, 1);
   }
 }
 
 void loop() {
-  StaticJsonBuffer<200> jsonBuffer;
+  //StaticJsonBuffer<200> jsonBuffer;
   zero_countdown++;
-  if (Serial.available()) {
-    symb = Serial.read();
-    if (symb != '$') {
-      receive += symb;
-    } else {
-      JsonObject& root = jsonBuffer.parseObject(receive);
-      receive = "";
-      l = root["L"];
-      r = root["R"];
-      zero_countdown = 0;
-    }
-  }
-  if (zero_countdown > 250) {
-    l = 0;
-    r = 0;
-  }
+//  if (Serial.available()) {
+//    symb = Serial.read();
+//    if (symb != '$') {
+//      receive += symb;
+//    } else {
+//      JsonObject& root = jsonBuffer.parseObject(receive);
+//      receive = "";
+//      l = root["L"];
+//      r = root["R"];
+//      zero_countdown = 0;
+//    }
+//  }
+
+  l = analogRead(0)-zero_l;
+  r = analogRead(2)-zero_r;
+//  
+//  if (zero_countdown > 250) {
+//    l = 0;
+//    r = 0;
+//  }
 
   cur_t = millis();
   inter = cur_t - prev_t;
@@ -143,18 +150,18 @@ void loop() {
   if (abs(ctrl_l) < zero_edge) ctrl_l = 0;
   if (abs(ctrl_r) < zero_edge) ctrl_r = 0;
 
-  if ((ctrl_l_prev < zero_edge)&&(ctrl_l >= zero_edge)){
-    ctrl_l = per;
-  }
-  if ((ctrl_l_prev > -zero_edge)&&(ctrl_l <= -zero_edge)){
-    ctrl_l = -per;
-  }
-  if ((ctrl_r_prev < zero_edge)&&(ctrl_r >= zero_edge)){
-    ctrl_r = per;
-  }
-  if ((ctrl_r_prev > -zero_edge)&&(ctrl_r <= -zero_edge)){
-    ctrl_r = -per;
-  }
+//  if ((ctrl_l_prev < zero_edge)&&(ctrl_l >= zero_edge)){
+//    ctrl_l = per;
+//  }
+//  if ((ctrl_l_prev > -zero_edge)&&(ctrl_l <= -zero_edge)){
+//    ctrl_l = -per;
+//  }
+//  if ((ctrl_r_prev < zero_edge)&&(ctrl_r >= zero_edge)){
+//    ctrl_r = per;
+//  }
+//  if ((ctrl_r_prev > -zero_edge)&&(ctrl_r <= -zero_edge)){
+//    ctrl_r = -per;
+//  }
 
   if (redirect_l){
     redirect_l = false;
@@ -166,9 +173,9 @@ void loop() {
   }
   
   if ((front_r)&&(ctrl_r < 0)){
-    redirect_r = true;
-    ctrl_r_prev = ctrl_r;
-    ctrl_r = 0;
+//    redirect_r = true;
+//    ctrl_r_prev = ctrl_r;
+//    ctrl_r = 0;
     direct(1, 0);
     front_r = false;
   }
@@ -181,17 +188,17 @@ void loop() {
     front_r = false;
   }
   if ((!front_r)&&(ctrl_r < 0)){
-    redirect_r = true;
-    ctrl_r_prev = ctrl_r;
-    ctrl_r = 0;
+//    redirect_r = true;
+//    ctrl_r_prev = ctrl_r;
+//    ctrl_r = 0;
     direct(1, 0);
     front_r = true;
   }
 
   if ((front_l)&&(ctrl_l < 0)){
-    redirect_l = true;
-    ctrl_l_prev = ctrl_l;
-    ctrl_l = 0;
+//    redirect_l = true;
+//    ctrl_l_prev = ctrl_l;
+//    ctrl_l = 0;
     direct(0, 0);
     front_l = false;
   }
@@ -204,23 +211,23 @@ void loop() {
     front_l = false;
   }
   if ((!front_l)&&(ctrl_l < 0)){
-    redirect_l = true;
-    ctrl_l_prev = ctrl_l;
-    ctrl_l = 0;
+//    redirect_l = true;
+//    ctrl_l_prev = ctrl_l;
+//    ctrl_l = 0;
     direct(0, 0);
     front_l = true;
   }
 
   if (engaged_l) {
     eng_t_l += inter;
-    if (eng_t_l > ctrl_l) {
+    if (eng_t_l > abs(ctrl_l)) {
       engaged_l = false;
       turnOff(l_pin);
       idl_t_l = 0;
     }
   } else {
     idl_t_l += inter;
-    if (idl_t_l > per - ctrl_l) {
+    if (idl_t_l > per - abs(ctrl_l)) {
       engaged_l = true;
       turnOn(l_pin);
       eng_t_l = 0;
@@ -229,14 +236,14 @@ void loop() {
 
   if (engaged_r) {
     eng_t_r += inter;
-    if (eng_t_r > ctrl_r) {
+    if (eng_t_r > abs(ctrl_r)) {
       engaged_r = false;
       turnOff(r_pin);
       idl_t_r = 0;
     }
   } else {
     idl_t_r += inter;
-    if (idl_t_r > per - ctrl_r) {
+    if (idl_t_r > per - abs(ctrl_r)) {
       engaged_r = true;
       turnOn(r_pin);
       eng_t_r = 0;
