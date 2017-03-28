@@ -43,6 +43,9 @@ long zero_r;
 boolean cold_start_l;
 boolean cold_start_r;
 
+boolean redirect_l;
+boolean redirect_r;
+
 int zero_countdown = 0;
 
 void setup() {
@@ -82,7 +85,7 @@ void turnOn(int x) {
 void direct (int side, int head) {
   if (side == 0){
     digitalWrite(pow_l, 0);
-    delay(2);
+    //delay(2);
     if (head == 0){
       digitalWrite(ctr_l_p, 0);
       digitalWrite(ctr_l_n, 1);
@@ -93,7 +96,7 @@ void direct (int side, int head) {
     digitalWrite(pow_l, 1);
   } else {
     digitalWrite(pow_r, 0);
-    delay(2);
+    //delay(2);
     digitalWrite(pow_r, 0);
     if (head == 0){
       digitalWrite(ctr_r_p, 0);
@@ -152,8 +155,20 @@ void loop() {
   if ((ctrl_r_prev > -zero_edge)&&(ctrl_r <= -zero_edge)){
     ctrl_r = -per;
   }
+
+  if (redirect_l){
+    redirect_l = false;
+    ctrl_l = ctrl_l_prev;
+  }
+  if (redirect_r){
+    redirect_r = false;
+    ctrl_r = ctrl_r_prev;
+  }
   
   if ((front_r)&&(ctrl_r < 0)){
+    redirect_r = true;
+    ctrl_r_prev = ctrl_r;
+    ctrl_r = 0;
     direct(1, 0);
     front_r = false;
   }
@@ -161,12 +176,38 @@ void loop() {
     direct(1, 1);
     front_r = true;
   }
+  if ((front_r)&&(ctrl_r > 0)){
+    direct(1, 1);
+    front_r = false;
+  }
+  if ((!front_r)&&(ctrl_r < 0)){
+    redirect_r = true;
+    ctrl_r_prev = ctrl_r;
+    ctrl_r = 0;
+    direct(1, 0);
+    front_r = true;
+  }
+
   if ((front_l)&&(ctrl_l < 0)){
+    redirect_l = true;
+    ctrl_l_prev = ctrl_l;
+    ctrl_l = 0;
     direct(0, 0);
     front_l = false;
   }
   if ((!front_l)&&(ctrl_l > 0)){
     direct(0, 1);
+    front_l = true;
+  }
+  if ((front_l)&&(ctrl_l > 0)){
+    direct(0, 1);
+    front_l = false;
+  }
+  if ((!front_l)&&(ctrl_l < 0)){
+    redirect_l = true;
+    ctrl_l_prev = ctrl_l;
+    ctrl_l = 0;
+    direct(0, 0);
     front_l = true;
   }
 
@@ -202,6 +243,8 @@ void loop() {
     }
   }
 
-  ctrl_l_prev = ctrl_l;
-  ctrl_r_prev = ctrl_r;
+  if (!redirect_l)
+    ctrl_l_prev = ctrl_l;
+  if (!redirect_r)
+    ctrl_r_prev = ctrl_r;
 }
