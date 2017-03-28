@@ -7,14 +7,17 @@ long cur_t;
 long prev_t;
 long inter;
 long per = 50;
+long zero_edge = 5;
 
 int l;
 int r;
 
 double ctrl_l;
 boolean engaged_l;
+double ctrl_l_prev;
 double ctrl_r;
 boolean engaged_r;
+double ctrl_r_prev;
 
 boolean front_r;
 boolean front_l;
@@ -37,15 +40,13 @@ int r_pin = 2;
 long zero_l;
 long zero_r;
 
+boolean cold_start_l;
+boolean cold_start_r;
+
 int zero_countdown = 0;
 
 void setup() {
   Serial.begin(9600);
-  
-//  pinMode(l_pin, OUTPUT);
-//  pinMode(r_pin, OUTPUT);
-//  zero_l = analogRead(1);
-//  zero_r = analogRead(2);
 
   pinMode(pow_l, OUTPUT);
   pinMode(ctr_l_p, OUTPUT);
@@ -81,7 +82,7 @@ void turnOn(int x) {
 void direct (int side, int head) {
   if (side == 0){
     digitalWrite(pow_l, 0);
-    delay(5);
+    delay(2);
     if (head == 0){
       digitalWrite(ctr_l_p, 0);
       digitalWrite(ctr_l_n, 1);
@@ -92,7 +93,7 @@ void direct (int side, int head) {
     digitalWrite(pow_l, 1);
   } else {
     digitalWrite(pow_r, 0);
-    delay(5);
+    delay(2);
     digitalWrite(pow_r, 0);
     if (head == 0){
       digitalWrite(ctr_r_p, 0);
@@ -133,25 +134,25 @@ void loop() {
   ctrl_l = l;
   ctrl_r /= 512;
   ctrl_l /= 512;
-  ctrl_r *= 50;
-  ctrl_l *= 50;
+  ctrl_r *= per;
+  ctrl_l *= per;
 
-  //      if (ctrl_l < 20) ctrl_l = 0;
-  //      if (ctrl_r < 20) ctrl_r = 0;
+  if (abs(ctrl_l) < zero_edge) ctrl_l = 0;
+  if (abs(ctrl_r) < zero_edge) ctrl_r = 0;
 
-  //      Serial.print(r);
-  //      Serial.print(" ");
-  //      Serial.print(l);
-  //      Serial.print(" ");
-  //      Serial.print(ctrl_r);
-  //      Serial.print(" ");
-  //      Serial.print(inter);
-  //      Serial.println();
-  //
-  if (abs(ctrl_l) < 5) ctrl_l = 0;
-  if (abs(ctrl_r) < 5) ctrl_r = 0;
+  if ((ctrl_l_prev < zero_edge)&&(ctrl_l >= zero_edge)){
+    ctrl_l = per;
+  }
+  if ((ctrl_l_prev > -zero_edge)&&(ctrl_l <= -zero_edge)){
+    ctrl_l = -per;
+  }
+  if ((ctrl_r_prev < zero_edge)&&(ctrl_r >= zero_edge)){
+    ctrl_r = per;
+  }
+  if ((ctrl_r_prev > -zero_edge)&&(ctrl_r <= -zero_edge)){
+    ctrl_r = -per;
+  }
   
-
   if ((front_r)&&(ctrl_r < 0)){
     direct(1, 0);
     front_r = false;
@@ -200,6 +201,7 @@ void loop() {
       eng_t_r = 0;
     }
   }
-  //    }
-  //  }
+
+  ctrl_l_prev = ctrl_l;
+  ctrl_r_prev = ctrl_r;
 }
