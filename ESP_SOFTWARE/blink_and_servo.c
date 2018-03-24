@@ -35,9 +35,6 @@ void blink_task(void *pvParameter) {
 			gpio_set_level(BLINK_GPIO, recieve);
 			printf("value received on queue: %lu \n", recieve);
 		}
-
-		//gpio_set_level(BLINK_GPIO, 1);
-
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 }
