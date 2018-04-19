@@ -1,6 +1,6 @@
 /* RGW-P1 prototype kernel
  *
- * Inclusions.
+ * Inclusions
  */
 
 #include <stdio.h>
@@ -15,7 +15,7 @@
 #include "soc/mcpwm_struct.h"
 
 /*
- * Boolean implementation.
+ * Boolean implementation
  */
 
 typedef int boolean;
@@ -23,213 +23,250 @@ typedef int boolean;
 #define false 0
 
 /*
- * Global variables for engine control code.
+ * Data structures
  */
 
-long cur_t;
-long prev_t;
-long inter;
-long per = 50;
-long zero_edge = 5;
+struct dataEng {
+	int l, r;
+};
 
-int l;
-int r;
+struct dataServo {
+	int pitch, yaw;
+};
 
-double ctrl_l;
-boolean engaged_l;
-double ctrl_l_prev;
-
-double ctrl_r;
-boolean engaged_r;
-double ctrl_r_prev;
-
-boolean front_r;
-boolean front_l;
-
-long eng_t_l = 0;
-long idl_t_l = 0;
-long eng_t_r = 0;
-long idl_t_r = 0;
-
-int pow_l = 12;
-int ctr_l_p = 11;
-int ctr_l_n = 10;
-int l_pin = 9;
-
-int pow_r = 5;
-int ctr_r_p = 4;
-int ctr_r_n = 3;
-int r_pin = 2;
-
-long zero_l;
-long zero_r;
-
-boolean cold_start_l;
-boolean cold_start_r;
-
-int zero_countdown = 0;
+struct data {
+	int l, r, pitch, yaw;
+};
 
 /*
- * Ported engine control code.
+ * Communication queues
  */
 
-void engine_init() {
-//	Serial.begin(9600);
-//
-//	pinMode(pow_l, OUTPUT);
-//	pinMode(ctr_l_p, OUTPUT);
-//	pinMode(ctr_l_n, OUTPUT);
-//	pinMode(l_pin, OUTPUT);
-//
-//	pinMode(pow_r, OUTPUT);
-//	pinMode(ctr_r_p, OUTPUT);
-//	pinMode(ctr_r_n, OUTPUT);
-//	pinMode(r_pin, OUTPUT);
-//
-//	receive = "";
-//	symb = ' ';
+QueueHandle_t queue_e, queue_s, queue_d = NULL;
 
-	turnOff(l_pin);
-	turnOff(r_pin);
+/*
+ ********************************
+ * ENGINE BLOCK
+ ********************************
+ */
 
-	direct(0, 1);
-	direct(1, 1);
+/*
+ * Connection pins
+ */
 
-	front_r = true;
-	front_l = true;
-}
+#define ELP 12
+#define ELCP 11
+#define ELCN 10
+#define EL 9
+
+#define ERP 5
+#define ERCP 4
+#define ERCN 3
+#define ER 2
+
+/*
+ * System constants
+ */
+
+#define PER 50
+#define ZERO_EDGE 5
+#define IMPULSE 2
+#define IDLE_LIMIT 250
+#define LEFT 0
+#define RIGHT 1
+#define FWD 0
+#define BCK 1
+
+/*
+ * Global variables
+ */
+
+long cur_t, prev_t, inter;
+int l, r;
+double ctrl_l, ctrl_r, ctrl_l_p, ctrl_r_p;
+boolean engaged_l, engaged_r, front_l, front_r;
+long eng_t_l, eng_t_r, idl_t_l, idl_t_r, zero_l, zero_r, zero_countdown;
+/*
+ * Power controllers
+ */
 
 void turnOff(int x) {
-  //digitalWrite(x, HIGH);
+	gpio_set_level(x, 0);
 }
 
 void turnOn(int x) {
-  //digitalWrite(x, LOW);
+	gpio_set_level(x, 1);
 }
 
-void direct (int side, int head) {
-  if (side == 0){
-    //digitalWrite(pow_l, 0);
-    //delay(2);
-    if (head == 0){
-      //digitalWrite(ctr_l_p, 0);
-      //digitalWrite(ctr_l_n, 1);
-    } else {
-      //digitalWrite(ctr_l_p, 1);
-      //digitalWrite(ctr_l_n, 0);
-    }
-    //digitalWrite(pow_l, 1);
-  } else {
-    //digitalWrite(pow_r, 0);
-    //delay(2);
-    //digitalWrite(pow_r, 0);
-    if (head == 0){
-      //digitalWrite(ctr_r_p, 0);
-      //digitalWrite(ctr_r_n, 1);
-    } else {
-      //digitalWrite(ctr_r_p, 1);
-      //digitalWrite(ctr_r_n, 0);
-    }
-    //digitalWrite(pow_r, 1);
-  }
+/*
+ * Engine director
+ */
+
+void direct(int side, int hdg) {
+	if (side == LEFT) {
+		gpio_set_level(ELP, 0);
+		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		if (hdg == BCK) {
+			gpio_set_level(ELCP, 0);
+			gpio_set_level(ELCN, 1);
+		} else {
+			gpio_set_level(ELCP, 1);
+			gpio_set_level(ELCN, 0);
+		}
+		gpio_set_level(ELP, 1);
+	} else {
+		gpio_set_level(ERP, 0);
+		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		if (hdg == BCK) {
+			gpio_set_level(ERCP, 0);
+			gpio_set_level(ERCN, 1);
+		} else {
+			gpio_set_level(ERCP, 1);
+			gpio_set_level(ERCN, 0);
+		}
+		gpio_set_level(ERP, 1);
+	}
 }
 
-void loop() {
-  //StaticJsonBuffer<200> jsonBuffer;
-  zero_countdown++;
-//  if (Serial.available()) {
-//    symb = Serial.read();
-//    if (symb != '$') {
-//      receive += symb;
-//    } else {
-//      JsonObject& root = jsonBuffer.parseObject(receive);
-//      receive = "";
-//      l = root["L"];
-//      r = root["R"];
-//      zero_countdown = 0;
-//    }
-//  }
-  if (zero_countdown > 250) {
-    l = 0;
-    r = 0;
-  }
+/*
+ * Engine subsystem initiator
+ */
 
-  cur_t = millis();
-  inter = cur_t - prev_t;
-  prev_t = cur_t;
+void enigne_init(void) {
+	gpio_pad_select_gpio(ELP);
+	gpio_set_direction(ELP, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(ELCP);
+	gpio_set_direction(ELCP, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(ELCN);
+	gpio_set_direction(ELCN, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(EL);
+	gpio_set_direction(EL, GPIO_MODE_OUTPUT);
 
-  ctrl_r = r;
-  ctrl_l = l;
-  ctrl_r /= 512;
-  ctrl_l /= 512;
-  ctrl_r *= per;
-  ctrl_l *= per;
+	gpio_pad_select_gpio(ERP);
+	gpio_set_direction(ERP, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(ERCP);
+	gpio_set_direction(ERCP, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(ERCN);
+	gpio_set_direction(ERCN, GPIO_MODE_OUTPUT);
+	gpio_pad_select_gpio(ER);
+	gpio_set_direction(ER, GPIO_MODE_OUTPUT);
 
-  if (abs(ctrl_l) < zero_edge) ctrl_l = 0;
-  if (abs(ctrl_r) < zero_edge) ctrl_r = 0;
+	turnOff(EL);
+	turnOff(ER);
 
-  if ((ctrl_l_prev < zero_edge)&&(ctrl_l >= zero_edge)){
-    ctrl_l = per;
-  }
-  if ((ctrl_l_prev > -zero_edge)&&(ctrl_l <= -zero_edge)){
-    ctrl_l = -per;
-  }
-  if ((ctrl_r_prev < zero_edge)&&(ctrl_r >= zero_edge)){
-    ctrl_r = per;
-  }
-  if ((ctrl_r_prev > -zero_edge)&&(ctrl_r <= -zero_edge)){
-    ctrl_r = -per;
-  }
+	direct(LEFT, FWD);
+	direct(RIGHT, FWD);
 
-  if ((front_r)&&(ctrl_r < 0)){
-    direct(1, 0);
-    front_r = false;
-  }
-  if ((!front_r)&&(ctrl_r > 0)){
-    direct(1, 1);
-    front_r = true;
-  }
-  if ((front_l)&&(ctrl_l < 0)){
-    direct(0, 0);
-    front_l = false;
-  }
-  if ((!front_l)&&(ctrl_l > 0)){
-    direct(0, 1);
-    front_l = true;
-  }
+	front_l = true;
+	front_r = true;
+}
 
-  if (engaged_l) {
-    eng_t_l += inter;
-    if (eng_t_l > ctrl_l) {
-      engaged_l = false;
-      turnOff(l_pin);
-      idl_t_l = 0;
-    }
-  } else {
-    idl_t_l += inter;
-    if (idl_t_l > per - ctrl_l) {
-      engaged_l = true;
-      turnOn(l_pin);
-      eng_t_l = 0;
-    }
-  }
+/*
+ * Engine operator
+ */
 
-  if (engaged_r) {
-    eng_t_r += inter;
-    if (eng_t_r > ctrl_r) {
-      engaged_r = false;
-      turnOff(r_pin);
-      idl_t_r = 0;
-    }
-  } else {
-    idl_t_r += inter;
-    if (idl_t_r > per - ctrl_r) {
-      engaged_r = true;
-      turnOn(r_pin);
-      eng_t_r = 0;
-    }
-  }
+void app_engine(void) {
+	while (1) {
+		zero_countdown++;
+		struct dataEng dat;
+		if (queue_e != NULL) {
+			xQueueReceive(queue_e, &dat,
+					(TickType_t) (1000 / portTICK_PERIOD_MS));
+			l = dat->l;
+			r = dat->r;
+		} else {
+			if (zero_countdown > IDLE_LIMIT) {
+				l = 0;
+				r = 0;
+			}
+		}
 
-  ctrl_l_prev = ctrl_l;
-  ctrl_r_prev = ctrl_r;
+		cur_t = xTaskGetTickCount() / (portTICK_RATE_MS * 1000);
+		inter = cur_t - prev_t;
+		prev_t = cur_t;
+
+		ctrl_r = r;
+		ctrl_l = l;
+		ctrl_r /= 512;
+		ctrl_l /= 512;
+		ctrl_r *= PER;
+		ctrl_l *= PER;
+
+		if (abs(ctrl_l) < ZERO_EDGE)
+			ctrl_l = 0;
+		if (abs(ctrl_r) < ZERO_EDGE)
+			ctrl_r = 0;
+
+		if ((ctrl_l_p < ZERO_EDGE) && (ctrl_l >= ZERO_EDGE)) {
+			ctrl_l = PER;
+		}
+		if ((ctrl_l_p > -ZERO_EDGE) && (ctrl_l <= -ZERO_EDGE)) {
+			ctrl_l = -PER;
+		}
+		if ((ctrl_r_p < ZERO_EDGE) && (ctrl_r >= ZERO_EDGE)) {
+			ctrl_r = PER;
+		}
+		if ((ctrl_r_p > -ZERO_EDGE) && (ctrl_r <= -ZERO_EDGE)) {
+			ctrl_r = -PER;
+		}
+
+		if ((front_r) && (ctrl_r < 0)) {
+			direct(RIGHT, FWD);
+			front_r = false;
+		}
+		if ((!front_r) && (ctrl_r > 0)) {
+			direct(1, BCK);
+			front_r = true;
+		}
+		if ((front_l) && (ctrl_l < 0)) {
+			direct(LEFT, FWD);
+			front_l = false;
+		}
+		if ((!front_l) && (ctrl_l > 0)) {
+			direct(LEFT, BCK);
+			front_l = true;
+		}
+
+		if (engaged_l) {
+			eng_t_l += inter;
+			if (eng_t_l > ctrl_l) {
+				engaged_l = false;
+				turnOff(EL);
+				idl_t_l = 0;
+			}
+		} else {
+			idl_t_l += inter;
+			if (idl_t_l > PER - ctrl_l) {
+				engaged_l = true;
+				turnOn(EL);
+				eng_t_l = 0;
+			}
+		}
+
+		if (engaged_r) {
+			eng_t_r += inter;
+			if (eng_t_r > ctrl_r) {
+				engaged_r = false;
+				turnOff(ER);
+				idl_t_r = 0;
+			}
+		} else {
+			idl_t_r += inter;
+			if (idl_t_r > PER - ctrl_r) {
+				engaged_r = true;
+				turnOn(ER);
+				eng_t_r = 0;
+			}
+		}
+
+		ctrl_l_p = ctrl_l;
+		ctrl_r_p = ctrl_r;
+	}
+
+/*
+ ********************************
+ * SERVO BLOCK
+ ********************************
+ */
+
 }
