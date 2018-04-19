@@ -172,6 +172,7 @@ void engine_init() {
  */
 
 void app_engine() {
+	printf("APP_ENGINE: Entry... \n");
 	while (1) {
 		zero_countdown++;
 		struct dataEngine dat;
@@ -342,6 +343,7 @@ static uint32_t servo_per_degree_init(uint32_t degree_of_rotation) {
  */
 
 void app_servo() {
+	printf("APP_SERVO: Entry... \n");
 	while (1) {
 		zero_countdown2++;
 		struct dataServo dat;
@@ -382,6 +384,7 @@ void app_servo() {
  */
 
 void app_override() {
+	printf("APP_OVERRIDE: Entry... \n");
 	while (1) {
 		struct data dat;
 		struct dataEngine dat_e;
@@ -416,6 +419,7 @@ void app_override() {
  */
 
 void app_gen() {
+	printf("APP_GEN: Entry... \n");
 	while (1) {
 		char ret[] =
 				"{\"l\" : 128, \"r\" : -256, \"pitch\" : 300, \"yaw\" : -340}";
@@ -437,6 +441,7 @@ void app_gen() {
 
 void app_receive() {
 	char *cmd;
+	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
 		if (queue_s != NULL) {
 			xQueueReceive(queue_m, &cmd,
@@ -464,6 +469,12 @@ void app_receive() {
  * MAIN BLOCK
  ********************************
  */
+
+/*
+ * System constants
+ */
+
+#define STACK_SIZE 131072
 
 /*
  * Queue initiator
@@ -496,19 +507,19 @@ void sys_init() {
  */
 
 void task_init() {
-	xTaskCreate(&app_gen, "generator task", 262144, NULL, 20, NULL);
+	xTaskCreate(app_gen, "generator task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Generator task is on. \n");
 
-	xTaskCreate(&app_receive, "receiver task", 262144, NULL, 20, NULL);
+	xTaskCreate(app_receive, "receiver task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Receiver task is on. \n");
 
-	xTaskCreate(&app_override, "overrider task", 262144, NULL, 20, NULL);
+	xTaskCreate(app_override, "overrider task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Overrider task is on. \n");
 
-	xTaskCreate(&app_servo, "servo control task", 262144, NULL, 20, NULL);
+	xTaskCreate(app_servo, "servo control task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Servo control task is on. \n");
 
-	xTaskCreate(&app_engine, "engine control task", 262144, NULL, 20, NULL);
+	xTaskCreate(app_engine, "engine control task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Engine control task is on. \n");
 }
 
