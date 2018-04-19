@@ -56,15 +56,15 @@ QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
  * Connection pins
  */
 
-#define ELP 12
-#define ELCP 11
-#define ELCN 10
-#define EL 9
+#define ELP 23
+#define ELCP 22
+#define ELCN 21
+#define EL 19
 
-#define ERP 5
-#define ERCP 4
-#define ERCN 3
-#define ER 2
+#define ERP 19
+#define ERCP 18
+#define ERCN 5
+#define ER 17
 
 /*
  * System constants
@@ -72,7 +72,7 @@ QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
 
 #define PER 50
 #define ZERO_EDGE 5
-#define IMPULSE 2
+#define IMPULSE 10
 #define IDLE_LIMIT 250
 #define LEFT 0
 #define RIGHT 1
@@ -285,8 +285,8 @@ void app_engine() {
  * Connections pins
  */
 
-#define EP 26
-#define EY 27
+#define EP 2
+#define EY 15
 
 /*
  * System constants
@@ -496,19 +496,19 @@ void sys_init() {
  */
 
 void task_init() {
-	xTaskCreate(&app_gen, "generator task", 4096, NULL, 5, NULL);
+	xTaskCreate(&app_gen, "generator task", 262144, NULL, 20, NULL);
 	printf("TASK_INIT: Generator task is on. \n");
 
-	xTaskCreate(&app_receive, "receiver task", 4096, NULL, 5, NULL);
+	xTaskCreate(&app_receive, "receiver task", 262144, NULL, 20, NULL);
 	printf("TASK_INIT: Receiver task is on. \n");
 
-	xTaskCreate(&app_override, "overrider task", 4096, NULL, 5, NULL);
+	xTaskCreate(&app_override, "overrider task", 262144, NULL, 20, NULL);
 	printf("TASK_INIT: Overrider task is on. \n");
 
-	xTaskCreate(&app_servo, "servo control task", 4096, NULL, 5, NULL);
+	xTaskCreate(&app_servo, "servo control task", 262144, NULL, 20, NULL);
 	printf("TASK_INIT: Servo control task is on. \n");
 
-	xTaskCreate(&app_engine, "engine control task", 4096, NULL, 5, NULL);
+	xTaskCreate(&app_engine, "engine control task", 262144, NULL, 20, NULL);
 	printf("TASK_INIT: Engine control task is on. \n");
 }
 
