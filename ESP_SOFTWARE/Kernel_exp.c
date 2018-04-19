@@ -72,7 +72,7 @@ QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
 
 #define PER 50
 #define ZERO_EDGE 5
-#define IMPULSE 10
+#define IMPULSE 2
 #define IDLE_LIMIT 250
 #define LEFT 0
 #define RIGHT 1
@@ -107,7 +107,7 @@ void turnOn(int32_t x) {
 void direct(uint32_t side, uint32_t hdg) {
 	if (side == LEFT) {
 		gpio_set_level(ELP, 0);
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 		if (hdg == BCK) {
 			gpio_set_level(ELCP, 0);
 			gpio_set_level(ELCN, 1);
@@ -118,7 +118,7 @@ void direct(uint32_t side, uint32_t hdg) {
 		gpio_set_level(ELP, 1);
 	} else {
 		gpio_set_level(ERP, 0);
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 		if (hdg == BCK) {
 			gpio_set_level(ERCP, 0);
 			gpio_set_level(ERCN, 1);
@@ -174,6 +174,7 @@ void engine_init() {
 void app_engine() {
 	printf("APP_ENGINE: Entry... \n");
 	while (1) {
+		//printf("APP_ENGINE: Scanning... \n");
 		zero_countdown++;
 		struct dataEngine dat;
 		if (queue_e != NULL) {
@@ -272,7 +273,7 @@ void app_engine() {
 		ctrl_l_p = ctrl_l;
 		ctrl_r_p = ctrl_r;
 
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 	}
 }
 
@@ -345,6 +346,7 @@ static uint32_t servo_per_degree_init(uint32_t degree_of_rotation) {
 void app_servo() {
 	printf("APP_SERVO: Entry... \n");
 	while (1) {
+		//printf("APP_SERVO: Scanning... \n");
 		zero_countdown2++;
 		struct dataServo dat;
 		if (queue_s != NULL) {
@@ -369,7 +371,7 @@ void app_servo() {
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle_p);
 		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle_y);
 
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 	}
 }
 
@@ -386,6 +388,7 @@ void app_servo() {
 void app_override() {
 	printf("APP_OVERRIDE: Entry... \n");
 	while (1) {
+		//printf("APP_OVERRIDE: Scanning... \n");
 		struct data dat;
 		struct dataEngine dat_e;
 		struct dataServo dat_s;
@@ -404,7 +407,7 @@ void app_override() {
 			xQueueSend(queue_e, (void * ) &dat_e, (TickType_t ) 0);
 			xQueueSend(queue_s, (void * ) &dat_s, (TickType_t ) 0);
 		}
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 	}
 }
 
@@ -425,7 +428,7 @@ void app_gen() {
 				"{\"l\" : 128, \"r\" : -256, \"pitch\" : 300, \"yaw\" : -340}";
 		xQueueSend(queue_m, (void * ) &ret, (TickType_t ) 0);
 		printf("APP_GEN: Sending data - %s \n", ret);
-		vTaskDelay(2000 / portTICK_PERIOD_MS);
+		vTaskDelay(200 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -443,6 +446,7 @@ void app_receive() {
 	char cmd[200];
 	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
+		//printf("APP_RECEIVE: Scanning... \n");
 		if (queue_s != NULL) {
 			xQueueReceive(queue_m, &cmd,
 					(TickType_t) (1000 / portTICK_PERIOD_MS));
@@ -459,8 +463,10 @@ void app_receive() {
 
 			printf("APP_RECEIVE: Sending data... \n");
 			xQueueSend(queue_d, (void * ) &dat, (TickType_t ) 0);
+		} else {
+			printf("APP_RECEIVEL: No data received. \n");
 		}
-		vTaskDelay(IMPULSE / portTICK_PERIOD_MS);
+		vTaskDelay(IMPULSE);
 	}
 }
 
