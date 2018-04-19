@@ -440,7 +440,7 @@ void app_gen() {
  */
 
 void app_receive() {
-	char *cmd;
+	char cmd[200];
 	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
 		if (queue_s != NULL) {
@@ -474,7 +474,7 @@ void app_receive() {
  * System constants
  */
 
-#define STACK_SIZE 131072
+#define STACK_SIZE 4096
 
 /*
  * Queue initiator
@@ -487,7 +487,7 @@ void queue_init() {
 	printf("QUEUE INIT: Servo data flow queue created. \n");
 	queue_d = xQueueCreate(20, sizeof(struct data));
 	printf("QUEUE INIT: Unpacked data flow queue created. \n");
-	queue_m = xQueueCreate(20, sizeof(char));
+	queue_m = xQueueCreate(20, sizeof(char[200]));
 	printf("QUEUE INIT: Raw data flow queue created. \n");
 }
 
