@@ -401,7 +401,7 @@ void app_override() {
 			dat_s.yaw = dat.yaw;
 
 			printf(
-					"APP_OVERRIDE: Spreading data. Received: l = %d, r =  %d, pitch = %d, yaw = %d \n",
+					"APP_OVERRIDE: Spreading data. Received: l = %d, r = %d, pitch = %d, yaw = %d \n",
 					dat.l, dat.r, dat.pitch, dat.yaw);
 
 			xQueueSend(queue_e, (void * ) &dat_e, (TickType_t ) 0);
