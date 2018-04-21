@@ -177,19 +177,17 @@ void app_engine() {
 		//printf("APP_ENGINE: Scanning... \n");
 		zero_countdown++;
 		struct dataEngine dat;
-		if (pdTRUE
-				== xQueueReceive(queue_e, &dat,
-						(TickType_t) 0)) {
+		if (pdTRUE == xQueueReceive(queue_e, &dat, (TickType_t ) 0)) {
 			l = dat.l;
 			r = dat.r;
 			printf("APP_ENGINE: Data received: l = %d, r = %d \n", l, r);
 		} else {
-			if (zero_countdown > IDLE_LIMIT) {
+			if (zero_countdown == IDLE_LIMIT) {
 				l = 0;
 				r = 0;
 				printf("APP_ENGINE: Idleness limit exceeded. \n");
 			}
-			printf("APP_ENGINE: No data received. \n");
+			//printf("APP_ENGINE: No data received. \n");
 		}
 
 		cur_t = xTaskGetTickCount() / (portTICK_RATE_MS * 1000);
@@ -224,21 +222,25 @@ void app_engine() {
 		if ((front_r) && (ctrl_r < 0)) {
 			direct(RIGHT, FWD);
 			front_r = false;
+			printf("APP_ENG: Engine R redirected backward. \n");
 		}
 		if ((!front_r) && (ctrl_r > 0)) {
-			direct(1, BCK);
+			direct(RIGHT, BCK);
 			front_r = true;
+			printf("APP_ENG: Engine R redirected forward. \n");
 		}
 		if ((front_l) && (ctrl_l < 0)) {
 			direct(LEFT, FWD);
 			front_l = false;
+			printf("APP_ENG: Engine L redirected backward. \n");
 		}
 		if ((!front_l) && (ctrl_l > 0)) {
 			direct(LEFT, BCK);
 			front_l = true;
+			printf("APP_ENG: Engine L redirected forward. \n");
 		}
 
-		printf("APP_ENG: Changing engine power... \n");
+		//printf("APP_ENG: Changing engine power... \n");
 		if (engaged_l) {
 			eng_t_l += inter;
 			if (eng_t_l > ctrl_l) {
@@ -349,20 +351,18 @@ void app_servo() {
 	while (1) {
 		zero_countdown2++;
 		struct dataServo dat;
-		if (pdTRUE
-				== xQueueReceive(queue_s, &dat,
-						(TickType_t) 0)) {
+		if (pdTRUE == xQueueReceive(queue_s, &dat, (TickType_t ) 0)) {
 			pitch = dat.pitch;
 			yaw = dat.yaw;
 			printf("APP_SERVO: Data received: pitch = %d, yaw = %d \n", pitch,
 					yaw);
 		} else {
-			if (zero_countdown > IDLE_LIMIT) {
+			if (zero_countdown == IDLE_LIMIT) {
 				pitch = 0;
 				yaw = 0;
 				printf("APP_SERVO: Idleness limit exceeded. \n");
 			}
-			printf("APP_SERVO: No data received. \n");
+			//printf("APP_SERVO: No data received. \n");
 		}
 
 		angle_p = servo_per_degree_init(pitch);
@@ -391,9 +391,7 @@ void app_override() {
 		struct data dat;
 		struct dataEngine dat_e;
 		struct dataServo dat_s;
-		if (pdTRUE
-				== xQueueReceive(queue_d, &dat,
-						(TickType_t) 0)) {
+		if (pdTRUE == xQueueReceive(queue_d, &dat, (TickType_t ) 0)) {
 			dat_e.l = dat.l;
 			dat_e.r = dat.r;
 			dat_s.pitch = dat.pitch;
@@ -437,11 +435,11 @@ void app_gen() {
 		 * Serial converter
 		 */
 
-		char s[100], sp[100];
+		char s[200], sp[200];
 		while (1) {
 			scanf("%s \n", s);
 			int same = 1;
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 200; i++) {
 				if (s[i] != sp[i]) {
 					same = 0;
 				}
@@ -450,7 +448,7 @@ void app_gen() {
 				xQueueSend(queue_m, (void * ) &s, (TickType_t ) 0);
 				printf("APP_GEN: Sending data - %s \n", s);
 			}
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 200; i++) {
 				sp[i] = s[i];
 			}
 
@@ -474,9 +472,7 @@ void app_receive() {
 	char cmd[200];
 	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
-		if (pdTRUE
-				== xQueueReceive(queue_m, &cmd,
-						(TickType_t) 0)) {
+		if (pdTRUE == xQueueReceive(queue_m, &cmd, (TickType_t ) 0)) {
 			printf("APP_RECEIVE: Received string - %s \n", cmd);
 
 			cJSON *j = cJSON_Parse(cmd);
@@ -495,7 +491,7 @@ void app_receive() {
 				printf("APP_RECEIVE: Invalid string received. \n");
 			}
 		} else {
-			printf("APP_RECEIVEL: No data received. \n");
+			//printf("APP_RECEIVEL: No data received. \n");
 		}
 		vTaskDelay(IMPULSE);
 	}
