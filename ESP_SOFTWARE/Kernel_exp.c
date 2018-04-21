@@ -61,10 +61,10 @@ QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
 #define ELCN 21
 #define EL 19
 
-#define ERP 19
-#define ERCP 18
-#define ERCN 5
-#define ER 17
+#define ERP 18
+#define ERCP 5
+#define ERCN 17
+#define ER 16
 
 /*
  * System constants
@@ -177,9 +177,9 @@ void app_engine() {
 		//printf("APP_ENGINE: Scanning... \n");
 		zero_countdown++;
 		struct dataEngine dat;
-		if (queue_e != NULL) {
-			xQueueReceive(queue_e, &dat,
-					(TickType_t) (1000 / portTICK_PERIOD_MS));
+		if (pdTRUE
+				== xQueueReceive(queue_e, &dat,
+						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
 			l = dat.l;
 			r = dat.r;
 			printf("APP_ENGINE: Data received: l = %d, r = %d \n", l, r);
@@ -238,6 +238,7 @@ void app_engine() {
 			front_l = true;
 		}
 
+		printf("APP_ENG: Changing engine power... \n");
 		if (engaged_l) {
 			eng_t_l += inter;
 			if (eng_t_l > ctrl_l) {
@@ -312,7 +313,7 @@ int32_t pitch, yaw;
 void servo_init() {
 	printf("SERVO_INIT: setting up GPIO... \n");
 	mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, EP);
-	mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0A, EY);
+	mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0B, EY);
 
 	printf("SERVO_INIT: making MCPWM config... \n");
 	mcpwm_config_t pwm_config;
@@ -346,12 +347,11 @@ static uint32_t servo_per_degree_init(uint32_t degree_of_rotation) {
 void app_servo() {
 	printf("APP_SERVO: Entry... \n");
 	while (1) {
-		//printf("APP_SERVO: Scanning... \n");
 		zero_countdown2++;
 		struct dataServo dat;
-		if (queue_s != NULL) {
-			xQueueReceive(queue_s, &dat,
-					(TickType_t) (1000 / portTICK_PERIOD_MS));
+		if (pdTRUE
+				== xQueueReceive(queue_s, &dat,
+						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
 			pitch = dat.pitch;
 			yaw = dat.yaw;
 			printf("APP_SERVO: Data received: pitch = %d, yaw = %d \n", pitch,
@@ -371,7 +371,7 @@ void app_servo() {
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle_p);
 		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle_y);
 
-		vTaskDelay(IMPULSE);
+		vTaskDelay(1);
 	}
 }
 
@@ -388,13 +388,12 @@ void app_servo() {
 void app_override() {
 	printf("APP_OVERRIDE: Entry... \n");
 	while (1) {
-		//printf("APP_OVERRIDE: Scanning... \n");
 		struct data dat;
 		struct dataEngine dat_e;
 		struct dataServo dat_s;
-		if (queue_d != NULL) {
-			xQueueReceive(queue_d, &dat,
-					(TickType_t) (1000 / portTICK_PERIOD_MS));
+		if (pdTRUE
+				== xQueueReceive(queue_d, &dat,
+						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
 			dat_e.l = dat.l;
 			dat_e.r = dat.r;
 			dat_s.pitch = dat.pitch;
@@ -424,12 +423,41 @@ void app_override() {
 void app_gen() {
 	printf("APP_GEN: Entry... \n");
 	while (1) {
-		char ret[] =
-				"{\"l\" : 128, \"r\" : -256, \"pitch\" : 300, \"yaw\" : -340}";
-		xQueueSend(queue_m, (void * ) &ret, (TickType_t ) 0);
-		printf("APP_GEN: Sending data - %s \n", ret);
-		vTaskDelay(200 / portTICK_PERIOD_MS);
+
+		/*
+		 * Generator
+		 */
+
+//		char ret[] =
+//				"{\"l\" : 350, \"r\" : -30, \"pitch\" : 300, \"yaw\" : -340}";
+//		xQueueSend(queue_m, (void * ) &ret, (TickType_t ) 0);
+//		printf("APP_GEN: Sending data - %s \n", ret);
+//		vTaskDelay(2000 / portTICK_PERIOD_MS);
+		/*
+		 * Serial converter
+		 */
+
+		char s[100], sp[100];
+		while (1) {
+			scanf("%s \n", s);
+			int same = 1;
+			for (int i = 0; i < 100; i++) {
+				if (s[i] != sp[i]) {
+					same = 0;
+				}
+			}
+			if (same == 0) {
+				xQueueSend(queue_m, (void * ) &s, (TickType_t ) 0);
+				printf("APP_GEN: Sending data - %s \n", s);
+			}
+			for (int i = 0; i < 100; i++) {
+				sp[i] = s[i];
+			}
+
+			vTaskDelay(1000 / portTICK_PERIOD_MS);
+		}
 	}
+
 }
 
 /*
@@ -446,23 +474,26 @@ void app_receive() {
 	char cmd[200];
 	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
-		//printf("APP_RECEIVE: Scanning... \n");
 		if (queue_s != NULL) {
 			xQueueReceive(queue_m, &cmd,
 					(TickType_t) (1000 / portTICK_PERIOD_MS));
 			printf("APP_RECEIVE: Received string - %s \n", cmd);
 
 			cJSON *j = cJSON_Parse(cmd);
-			printf("APP_RECEIVE: JSON parsed. \n");
+			if (j) {
+				printf("APP_RECEIVE: JSON parsed. \n");
 
-			struct data dat;
-			dat.l = (int32_t) cJSON_GetObjectItem(j, "l")->valueint;
-			dat.r = (int32_t) cJSON_GetObjectItem(j, "r")->valueint;
-			dat.pitch = (int32_t) cJSON_GetObjectItem(j, "pitch")->valueint;
-			dat.yaw = (int32_t) cJSON_GetObjectItem(j, "yaw")->valueint;
+				struct data dat;
+				dat.l = (int32_t) cJSON_GetObjectItem(j, "l")->valueint;
+				dat.r = (int32_t) cJSON_GetObjectItem(j, "r")->valueint;
+				dat.pitch = (int32_t) cJSON_GetObjectItem(j, "pitch")->valueint;
+				dat.yaw = (int32_t) cJSON_GetObjectItem(j, "yaw")->valueint;
 
-			printf("APP_RECEIVE: Sending data... \n");
-			xQueueSend(queue_d, (void * ) &dat, (TickType_t ) 0);
+				printf("APP_RECEIVE: Sending data... \n");
+				xQueueSend(queue_d, (void * ) &dat, (TickType_t ) 0);
+			} else {
+				printf("APP_RECEIVE: Invalid string received. \n");
+			}
 		} else {
 			printf("APP_RECEIVEL: No data received. \n");
 		}
@@ -513,6 +544,12 @@ void sys_init() {
  */
 
 void task_init() {
+	xTaskCreate(app_engine, "engine control task", STACK_SIZE, NULL, 5, NULL);
+	printf("TASK_INIT: Engine control task is on. \n");
+
+	xTaskCreate(app_servo, "servo control task", STACK_SIZE, NULL, 5, NULL);
+	printf("TASK_INIT: Servo control task is on. \n");
+
 	xTaskCreate(app_gen, "generator task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Generator task is on. \n");
 
@@ -521,12 +558,6 @@ void task_init() {
 
 	xTaskCreate(app_override, "overrider task", STACK_SIZE, NULL, 5, NULL);
 	printf("TASK_INIT: Overrider task is on. \n");
-
-	xTaskCreate(app_servo, "servo control task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Servo control task is on. \n");
-
-	xTaskCreate(app_engine, "engine control task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Engine control task is on. \n");
 }
 
 /*
