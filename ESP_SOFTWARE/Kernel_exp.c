@@ -179,7 +179,7 @@ void app_engine() {
 		struct dataEngine dat;
 		if (pdTRUE
 				== xQueueReceive(queue_e, &dat,
-						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
+						(TickType_t) 0)) {
 			l = dat.l;
 			r = dat.r;
 			printf("APP_ENGINE: Data received: l = %d, r = %d \n", l, r);
@@ -351,7 +351,7 @@ void app_servo() {
 		struct dataServo dat;
 		if (pdTRUE
 				== xQueueReceive(queue_s, &dat,
-						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
+						(TickType_t) 0)) {
 			pitch = dat.pitch;
 			yaw = dat.yaw;
 			printf("APP_SERVO: Data received: pitch = %d, yaw = %d \n", pitch,
@@ -393,7 +393,7 @@ void app_override() {
 		struct dataServo dat_s;
 		if (pdTRUE
 				== xQueueReceive(queue_d, &dat,
-						(TickType_t) (1000 / portTICK_PERIOD_MS))) {
+						(TickType_t) 0)) {
 			dat_e.l = dat.l;
 			dat_e.r = dat.r;
 			dat_s.pitch = dat.pitch;
@@ -474,9 +474,9 @@ void app_receive() {
 	char cmd[200];
 	printf("APP_RECEIVE: Entry... \n");
 	while (1) {
-		if (queue_s != NULL) {
-			xQueueReceive(queue_m, &cmd,
-					(TickType_t) (1000 / portTICK_PERIOD_MS));
+		if (pdTRUE
+				== xQueueReceive(queue_m, &cmd,
+						(TickType_t) 0)) {
 			printf("APP_RECEIVE: Received string - %s \n", cmd);
 
 			cJSON *j = cJSON_Parse(cmd);
