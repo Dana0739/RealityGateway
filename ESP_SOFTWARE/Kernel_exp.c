@@ -540,20 +540,51 @@ void sys_init() {
  */
 
 void task_init() {
-	xTaskCreate(app_engine, "engine control task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Engine control task is on. \n");
+	BaseType_t app_engine_up;
+	BaseType_t app_servo_up;
+	BaseType_t app_gen_up;
+	BaseType_t app_receive_up;
+	BaseType_t app_override_up;
 
-	xTaskCreate(app_servo, "servo control task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Servo control task is on. \n");
+	app_engine_up = xTaskCreate(app_engine, "engine control task", STACK_SIZE,
+	NULL, 5, NULL);
+	if (app_engine_up == pdPASS) {
+		printf("TASK_INIT: Engine control task is on. \n");
+	} else {
+		printf("TASK_INIT: Engine control task failed to launch. \n");
+	}
 
-	xTaskCreate(app_gen, "generator task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Generator task is on. \n");
+	app_servo_up = xTaskCreate(app_servo, "servo control task", STACK_SIZE,
+			NULL, 5, NULL);
+	if (app_servo_up == pdPASS) {
+		printf("TASK_INIT: Servo control task is on. \n");
+	} else {
+		printf("TASK_INIT: Servo control task failed to launch. \n");
+	}
 
-	xTaskCreate(app_receive, "receiver task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Receiver task is on. \n");
+	app_gen_up = xTaskCreate(app_gen, "generator task", STACK_SIZE, NULL, 5,
+			NULL);
+	if (app_gen_up == pdPASS) {
+		printf("TASK_INIT: Generator task is on. \n");
+	} else {
+		printf("TASK_INIT: Generator task failed to launch. \n");
+	}
 
-	xTaskCreate(app_override, "overrider task", STACK_SIZE, NULL, 5, NULL);
-	printf("TASK_INIT: Overrider task is on. \n");
+	app_receive_up = xTaskCreate(app_receive, "receiver task", STACK_SIZE, NULL,
+			5, NULL);
+	if (app_receive_up == pdPASS) {
+		printf("TASK_INIT: Receiver task is on. \n");
+	} else {
+		printf("TASK_INIT: Receiver task failed to launch. \n");
+	}
+
+	app_override_up = xTaskCreate(app_override, "overrider task", STACK_SIZE,
+			NULL, 5, NULL);
+	if (app_override_up == pdPASS) {
+		printf("TASK_INIT: Overrider task is on. \n");
+	} else {
+		printf("TASK_INIT: Overrider task failed to launch. \n");
+	}
 }
 
 /*
