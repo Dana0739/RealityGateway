@@ -579,7 +579,7 @@ void app_http() {
 			dat_s.yaw = (int32_t) cJSON_GetObjectItem(j, "yaw")->valueint;
 
 			ESP_LOGI(TAG,
-					"APP_HTTP: Spreading data. Received: l = %d, r = %d, pitch = %d, yaw = %d \n",
+					"APP_HTTP: Spreading data. Received: l = %d, r = %d, pitch = %d, yaw = %d",
 					dat_e.l, dat_e.r, dat_s.pitch, dat_s.yaw)
 
 			xQueueSend(queue_e, (void * ) &dat_e, (TickType_t ) 0);
