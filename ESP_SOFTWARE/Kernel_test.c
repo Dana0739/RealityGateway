@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -55,15 +56,11 @@ struct dataServo {
 	int32_t pitch, yaw;
 };
 
-struct data {
-	int32_t l, r, pitch, yaw;
-};
-
 /*
  * Communication queues
  */
 
-QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
+QueueHandle_t queue_e, queue_s = NULL;
 
 /*
  ********************************
@@ -102,11 +99,11 @@ QueueHandle_t queue_e, queue_s, queue_d, queue_m = NULL;
  * Global variables
  */
 
-uint64_t cur_t, prev_t, inter;
-int32_t l, r;
+long cur_t, prev_t, inter;
+int l, r;
 double ctrl_l, ctrl_r, ctrl_l_p, ctrl_r_p;
 boolean engaged_l, engaged_r, front_l, front_r;
-uint64_t eng_t_l, eng_t_r, idl_t_l, idl_t_r, zero_l, zero_r, zero_countdown;
+long eng_t_l, eng_t_r, idl_t_l, idl_t_r, zero_l, zero_r, zero_countdown;
 /*
  * Power controllers
  */
@@ -154,7 +151,9 @@ void direct(uint32_t side, uint32_t hdg) {
  */
 
 void engine_init() {
-	printf("ENGINE_INIT: setting up L GPIO... \n");
+	static const char *TAG = "ENGINE INIT";
+
+	ESP_LOGW(TAG, "Setting up L GPIO...");
 	gpio_pad_select_gpio(ELP);
 	gpio_set_direction(ELP, GPIO_MODE_OUTPUT);
 	gpio_pad_select_gpio(ELCP);
@@ -164,7 +163,7 @@ void engine_init() {
 	gpio_pad_select_gpio(EL);
 	gpio_set_direction(EL, GPIO_MODE_OUTPUT);
 
-	printf("ENGINE_INIT: setting up R GPIO... \n");
+	ESP_LOGW(TAG, "Setting up R GPIO...");
 	gpio_pad_select_gpio(ERP);
 	gpio_set_direction(ERP, GPIO_MODE_OUTPUT);
 	gpio_pad_select_gpio(ERCP);
@@ -174,11 +173,11 @@ void engine_init() {
 	gpio_pad_select_gpio(ER);
 	gpio_set_direction(ER, GPIO_MODE_OUTPUT);
 
-	printf("ENGINE_INIT: disabling engines... \n");
+	ESP_LOGW(TAG, "Disabling engines...");
 	turnOff(EL);
 	turnOff(ER);
 
-	printf("ENGINE_INIT: directing engines forward... \n");
+	ESP_LOGW(TAG, "Directing engines forward...");
 	direct(LEFT, FWD);
 	direct(RIGHT, FWD);
 
@@ -191,25 +190,28 @@ void engine_init() {
  */
 
 void app_engine() {
-	printf("APP_ENGINE: Entry... \n");
+	static const char *TAG = "APP ENGINE";
+
+	ESP_LOGW(TAG, "Entry...");
+
 	while (1) {
-		//printf("APP_ENGINE: Scanning... \n");
 		zero_countdown++;
 		struct dataEngine dat;
 		if (pdTRUE == xQueueReceive(queue_e, &dat, (TickType_t ) 0)) {
 			l = dat.l;
 			r = dat.r;
-			printf("APP_ENGINE: Data received: l = %d, r = %d \n", l, r);
+			zero_countdown = 0;
+			ESP_LOGI(TAG, "Data received: l = %d, r = %d", l, r);
 		} else {
 			if (zero_countdown == IDLE_LIMIT) {
 				l = 0;
 				r = 0;
-				printf("APP_ENGINE: Idleness limit exceeded. \n");
+				ESP_LOGW(TAG, "Idleness limit exceeded.");
 			}
-			//printf("APP_ENGINE: No data received. \n");
 		}
 
-		cur_t = xTaskGetTickCount() / (portTICK_RATE_MS * 1000);
+		cur_t = xTaskGetTickCount() * 100 / (portTICK_RATE_MS);
+		printf("%ld \n", cur_t);
 		inter = cur_t - prev_t;
 		prev_t = cur_t;
 
@@ -241,25 +243,24 @@ void app_engine() {
 		if ((front_r) && (ctrl_r < 0)) {
 			direct(RIGHT, FWD);
 			front_r = false;
-			printf("APP_ENG: Engine R redirected backward. \n");
+			ESP_LOGI(TAG, "Engine R is redirected backward.")
 		}
 		if ((!front_r) && (ctrl_r > 0)) {
 			direct(RIGHT, BCK);
 			front_r = true;
-			printf("APP_ENG: Engine R redirected forward. \n");
+			ESP_LOGI(TAG, "Engine R is redirected forward.")
 		}
 		if ((front_l) && (ctrl_l < 0)) {
 			direct(LEFT, FWD);
 			front_l = false;
-			printf("APP_ENG: Engine L redirected backward. \n");
+			ESP_LOGI(TAG, "Engine L is redirected backward.")
 		}
 		if ((!front_l) && (ctrl_l > 0)) {
 			direct(LEFT, BCK);
 			front_l = true;
-			printf("APP_ENG: Engine L redirected forward. \n");
+			ESP_LOGI(TAG, "Engine L is redirected forward.")
 		}
 
-		//printf("APP_ENG: Changing engine power... \n");
 		if (engaged_l) {
 			eng_t_l += inter;
 			if (eng_t_l > ctrl_l) {
@@ -332,11 +333,13 @@ int32_t pitch, yaw;
  */
 
 void servo_init() {
-	printf("SERVO_INIT: setting up GPIO... \n");
+	static const char *TAG = "SERVO INIT";
+
+	ESP_LOGW(TAG, "Setting up GPIO...");
 	mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, EP);
 	mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0B, EY);
 
-	printf("SERVO_INIT: making MCPWM config... \n");
+	ESP_LOGW(TAG, "Making MCPWM config...");
 	mcpwm_config_t pwm_config;
 	pwm_config.frequency = 50;
 	pwm_config.cmpr_a = 0;
@@ -344,7 +347,7 @@ void servo_init() {
 	pwm_config.counter_mode = MCPWM_UP_COUNTER;
 	pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
 
-	printf("SERVO_INIT: setting up MCPWM config... \n");
+	ESP_LOGW(TAG, "Setting up MCPWM config...");
 	mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
 	mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);
 }
@@ -366,22 +369,25 @@ static uint32_t servo_per_degree_init(uint32_t degree_of_rotation) {
  */
 
 void app_servo() {
-	printf("APP_SERVO: Entry... \n");
+	static const char *TAG = "APP SERVO";
+
+	ESP_LOGW(TAG, "Entry...");
+
 	while (1) {
 		zero_countdown2++;
 		struct dataServo dat;
 		if (pdTRUE == xQueueReceive(queue_s, &dat, (TickType_t ) 0)) {
 			pitch = dat.pitch;
 			yaw = dat.yaw;
-			printf("APP_SERVO: Data received: pitch = %d, yaw = %d \n", pitch,
-					yaw);
+			zero_countdown2 = 0;
+			ESP_LOGI(TAG, "APP_SERVO: Data received: pitch = %d, yaw = %d",
+					pitch, yaw);
 		} else {
-			if (zero_countdown == IDLE_LIMIT) {
+			if (zero_countdown2 == IDLE_LIMIT) {
 				pitch = 0;
 				yaw = 0;
-				printf("APP_SERVO: Idleness limit exceeded. \n");
+				ESP_LOGW(TAG, "Idleness limit exceeded.");
 			}
-			//printf("APP_SERVO: No data received. \n");
 		}
 
 		angle_p = servo_per_degree_init(pitch);
@@ -396,39 +402,6 @@ void app_servo() {
 
 /*
  ********************************
- * DATA OVERRIDE BLOCK
- ********************************
- */
-
-/*
- * Receive operator
- */
-
-void app_override() {
-	printf("APP_OVERRIDE: Entry... \n");
-	while (1) {
-		struct data dat;
-		struct dataEngine dat_e;
-		struct dataServo dat_s;
-		if (pdTRUE == xQueueReceive(queue_d, &dat, (TickType_t ) 0)) {
-			dat_e.l = dat.l;
-			dat_e.r = dat.r;
-			dat_s.pitch = dat.pitch;
-			dat_s.yaw = dat.yaw;
-
-			printf(
-					"APP_OVERRIDE: Spreading data. Received: l = %d, r = %d, pitch = %d, yaw = %d \n",
-					dat.l, dat.r, dat.pitch, dat.yaw);
-
-			xQueueSend(queue_e, (void * ) &dat_e, (TickType_t ) 0);
-			xQueueSend(queue_s, (void * ) &dat_s, (TickType_t ) 0);
-		}
-		vTaskDelay(IMPULSE);
-	}
-}
-
-/*
- ********************************
  * WI-FI RECIEVER BLOCK
  ********************************
  */
@@ -437,10 +410,16 @@ void app_override() {
  * Local definitions
  */
 
-#define EXAMPLE_WIFI_SSID "Poot"
-#define EXAMPLE_WIFI_PASS "dispencer"
+//#define EXAMPLE_WIFI_SSID "Poot"
+//#define EXAMPLE_WIFI_PASS "dispencer"
+//
+//#define WEB_SERVER "192.168.43.248"
+//#define WEB_PORT 8000
+//#define WEB_URL "/JSON.html"
+#define EXAMPLE_WIFI_SSID "TP-LINK_D5D03C"
+#define EXAMPLE_WIFI_PASS "dol99999"
 
-#define WEB_SERVER "192.168.43.248"
+#define WEB_SERVER "192.168.0.104"
 #define WEB_PORT 8000
 #define WEB_URL "/JSON.html"
 
@@ -450,8 +429,6 @@ void app_override() {
 
 static EventGroupHandle_t wifi_event_group;
 const int CONNECTED_BIT = BIT0;
-
-static const char *TAG = "example";
 
 static const char *REQUEST = "GET " WEB_URL " HTTP/1.1\r\n"
 "Host: "WEB_SERVER"\r\n"
@@ -487,16 +464,17 @@ static esp_err_t event_handler(void *ctx, system_event_t *event) {
  */
 
 static void wifi_init(void) {
+	static const char *TAG = "WIFI INIT";
 	tcpip_adapter_init();
 	wifi_event_group = xEventGroupCreate();
 	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT()
+	;
 	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 	ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 	wifi_config_t wifi_config = { .sta = { .ssid = EXAMPLE_WIFI_SSID,
 			.password = EXAMPLE_WIFI_PASS, }, };
-	ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...",
-			wifi_config.sta.ssid);
+	ESP_LOGI(TAG, "Setting WiFi configuration SSID %s...", wifi_config.sta.ssid);
 	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
 	ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
 	ESP_ERROR_CHECK(esp_wifi_start());
@@ -507,12 +485,13 @@ static void wifi_init(void) {
  */
 
 void app_http() {
-	printf("APP_HTTP: Entry... \n");
+	static const char *TAG = "APP HTTP";
+
+	ESP_LOGW(TAG, "Entry...");
 
 	const struct addrinfo hints = { .ai_family = AF_INET, .ai_socktype =
 	SOCK_STREAM, };
 	struct addrinfo *res;
-	struct in_addr *addr;
 	int s, r, bal, lim;
 	char recv_buf[256];
 	char to_json[256];
@@ -520,7 +499,6 @@ void app_http() {
 	while (1) {
 		xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT,
 		false, true, portMAX_DELAY);
-		//ESP_LOGI(TAG, "Connected to AP");
 
 		int err = getaddrinfo(WEB_SERVER, "8000", &hints, &res);
 
@@ -530,9 +508,6 @@ void app_http() {
 			continue;
 		}
 
-		addr = &((struct sockaddr_in *) res->ai_addr)->sin_addr;
-		//ESP_LOGI(TAG, "DNS lookup succeeded. IP=%s", inet_ntoa(*addr));
-
 		s = socket(res->ai_family, res->ai_socktype, 0);
 		if (s < 0) {
 			ESP_LOGE(TAG, "... Failed to allocate socket.");
@@ -540,7 +515,6 @@ void app_http() {
 			vTaskDelay(1000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		//ESP_LOGI(TAG, "... allocated socket");
 
 		if (connect(s, res->ai_addr, res->ai_addrlen) != 0) {
 			ESP_LOGE(TAG, "... socket connect failed errno=%d", errno);
@@ -550,7 +524,6 @@ void app_http() {
 			continue;
 		}
 
-		//ESP_LOGI(TAG, "... connected");
 		freeaddrinfo(res);
 
 		if (write(s, REQUEST, strlen(REQUEST)) < 0) {
@@ -559,7 +532,6 @@ void app_http() {
 			vTaskDelay(4000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		//ESP_LOGI(TAG, "... socket send success");
 
 		struct timeval receiving_timeout;
 		receiving_timeout.tv_sec = 5;
@@ -571,7 +543,6 @@ void app_http() {
 			vTaskDelay(4000 / portTICK_PERIOD_MS);
 			continue;
 		}
-		//ESP_LOGI(TAG, "... set socket receiving timeout success");
 
 		bzero(to_json, sizeof(to_json));
 		lim = 0;
@@ -580,7 +551,6 @@ void app_http() {
 			bzero(recv_buf, sizeof(recv_buf));
 			r = read(s, recv_buf, sizeof(recv_buf) - 1);
 			for (int i = 0; i < r; i++) {
-				//putchar(recv_buf[i]);
 				if (recv_buf[i] == '{') {
 					bal++;
 				}
@@ -593,55 +563,36 @@ void app_http() {
 			}
 		} while (r > 0);
 
-		//ESP_LOGI(TAG,
-		//		"... done reading from socket. Last read return=%d errno=%d\r\n",
-		//		r, errno);
+		ESP_LOGI(TAG, "Located string: %s", to_json);
 
-		//ESP_LOGI(TAG, "Located JSON: %s", to_json);
-		xQueueSend(queue_m, (void * ) &to_json, (TickType_t ) 0);
+		cJSON *j = cJSON_Parse(to_json);
+
+		if (j) {
+			ESP_LOGI(TAG, "JSON parsed.");
+
+			struct dataEngine dat_e;
+			struct dataServo dat_s;
+
+			dat_e.l = (int32_t) cJSON_GetObjectItem(j, "l")->valueint;
+			dat_e.r = (int32_t) cJSON_GetObjectItem(j, "r")->valueint;
+			dat_s.pitch = (int32_t) cJSON_GetObjectItem(j, "pitch")->valueint;
+			dat_s.yaw = (int32_t) cJSON_GetObjectItem(j, "yaw")->valueint;
+
+			ESP_LOGI(TAG,
+					"APP_HTTP: Spreading data. Received: l = %d, r = %d, pitch = %d, yaw = %d \n",
+					dat_e.l, dat_e.r, dat_s.pitch, dat_s.yaw)
+
+			xQueueSend(queue_e, (void * ) &dat_e, (TickType_t ) 0);
+			xQueueSend(queue_s, (void * ) &dat_s, (TickType_t ) 0);
+		} else {
+			ESP_LOGE(TAG, "Invalid string received.");
+		}
 
 		close(s);
 
+		cJSON_Delete(j);
+
 		vTaskDelay(50 / portTICK_PERIOD_MS);
-	}
-}
-
-/*
- ********************************
- * DATA UNPACK BLOCK
- ********************************
- */
-
-/*
- * JSON operator
- */
-
-void app_receive() {
-	char cmd[200];
-	printf("APP_RECEIVE: Entry... \n");
-	while (1) {
-		if (pdTRUE == xQueueReceive(queue_m, &cmd, (TickType_t ) 0)) {
-			printf("APP_RECEIVE: Received string - %s \n", cmd);
-
-			cJSON *j = cJSON_Parse(cmd);
-			if (j) {
-				printf("APP_RECEIVE: JSON parsed. \n");
-
-				struct data dat;
-				dat.l = (int32_t) cJSON_GetObjectItem(j, "l")->valueint;
-				dat.r = (int32_t) cJSON_GetObjectItem(j, "r")->valueint;
-				dat.pitch = (int32_t) cJSON_GetObjectItem(j, "pitch")->valueint;
-				dat.yaw = (int32_t) cJSON_GetObjectItem(j, "yaw")->valueint;
-
-				printf("APP_RECEIVE: Sending data... \n");
-				xQueueSend(queue_d, (void * ) &dat, (TickType_t ) 0);
-			} else {
-				printf("APP_RECEIVE: Invalid string received. \n");
-			}
-		} else {
-			//printf("APP_RECEIVEL: No data received. \n");
-		}
-		vTaskDelay(IMPULSE);
 	}
 }
 
@@ -662,14 +613,21 @@ void app_receive() {
  */
 
 void queue_init() {
+	static const char *TAG = "QUEUE INIT";
+
 	queue_e = xQueueCreate(20, sizeof(struct dataEngine));
-	printf("QUEUE INIT: Engine data flow queue created. \n");
+	if (queue_e != 0) {
+		ESP_LOGI(TAG, "Engine data flow queue created.");
+	} else {
+		ESP_LOGE(TAG, "Engine data flow queue failed to be created.")
+	}
+
 	queue_s = xQueueCreate(20, sizeof(struct dataServo));
-	printf("QUEUE INIT: Servo data flow queue created. \n");
-	queue_d = xQueueCreate(20, sizeof(struct data));
-	printf("QUEUE INIT: Unpacked data flow queue created. \n");
-	queue_m = xQueueCreate(20, sizeof(char[200]));
-	printf("QUEUE INIT: Raw data flow queue created. \n");
+	if (queue_s != 0) {
+		ESP_LOGI(TAG, "Servo data flow queue created.");
+	} else {
+		ESP_LOGE(TAG, "Servo data flow queue failed to be created.")
+	}
 }
 
 /*
@@ -677,14 +635,19 @@ void queue_init() {
  */
 
 void l_sys_init() {
+	static const char *TAG = "SYS INIT";
+
 	engine_init();
-	printf("SYS_INIT: Engine system is set. \n");
+	ESP_LOGW(TAG, "Engine initiation passed.");
+
 	servo_init();
-	printf("SYS_INIT: Servo system is set. \n");
-	ESP_ERROR_CHECK( nvs_flash_init() );
-	printf("SYS_INIT: No errors found.");
+	ESP_LOGW(TAG, "Servo initiation passed.")
+
+	ESP_ERROR_CHECK(nvs_flash_init());
+	ESP_LOGW(TAG, "Errors check passed.")
+
 	wifi_init();
-	printf("SYS_INIT: WI-FI module started.");
+	ESP_LOGW(TAG, "Wi-Fi module started.")
 }
 
 /*
@@ -692,50 +655,34 @@ void l_sys_init() {
  */
 
 void task_init() {
+	static const char *TAG = "TASK INIT";
+
 	BaseType_t app_engine_up;
 	BaseType_t app_servo_up;
 	BaseType_t app_http_up;
-	BaseType_t app_receive_up;
-	BaseType_t app_override_up;
 
 	app_engine_up = xTaskCreate(app_engine, "engine control task", STACK_SIZE,
 	NULL, 5, NULL);
 	if (app_engine_up == pdPASS) {
-		printf("TASK_INIT: Engine control task is on. \n");
+		ESP_LOGI(TAG, "Engine control task is on.");
 	} else {
-		printf("TASK_INIT: Engine control task failed to launch. \n");
+		ESP_LOGE(TAG, "Engine control task failed to launch.");
 	}
 
 	app_servo_up = xTaskCreate(app_servo, "servo control task", STACK_SIZE,
 	NULL, 5, NULL);
 	if (app_servo_up == pdPASS) {
-		printf("TASK_INIT: Servo control task is on. \n");
+		ESP_LOGI(TAG, "Servo control task is on.");
 	} else {
-		printf("TASK_INIT: Servo control task failed to launch. \n");
+		ESP_LOGE(TAG, "Servo control task failed to launch.");
 	}
 
 	app_http_up = xTaskCreate(&app_http, "HTTP task", STACK_SIZE, NULL, 5,
 	NULL);
 	if (app_http_up == pdPASS) {
-		printf("TASK_INIT: HTTP task is on. \n");
+		ESP_LOGI(TAG, "HTTP task is on.");
 	} else {
-		printf("TASK_INIT: HTTP task failed to launch. \n");
-	}
-
-	app_receive_up = xTaskCreate(app_receive, "receiver task", STACK_SIZE, NULL,
-			5, NULL);
-	if (app_receive_up == pdPASS) {
-		printf("TASK_INIT: Receiver task is on. \n");
-	} else {
-		printf("TASK_INIT: Receiver task failed to launch. \n");
-	}
-
-	app_override_up = xTaskCreate(app_override, "overrider task", STACK_SIZE,
-	NULL, 5, NULL);
-	if (app_override_up == pdPASS) {
-		printf("TASK_INIT: Overrider task is on. \n");
-	} else {
-		printf("TASK_INIT: Overrider task failed to launch. \n");
+		ESP_LOGE(TAG, "TASK_INIT: HTTP task failed to launch.");
 	}
 }
 
@@ -744,19 +691,21 @@ void task_init() {
  */
 
 void app_main() {
-	printf("APP_MAIN: Launching kernel... \n");
+	static const char *TAG = "APP MAIN";
 
-	printf("APP_MAIN: Initiating queues... \n");
+	ESP_LOGW(TAG, "Launching kernel...");
+
+	ESP_LOGI(TAG, "Initiating queues...");
 	queue_init();
-	printf("APP_MAIN: Queues initiation complete. \n");
+	ESP_LOGI(TAG, "Queues initiation passed.");
 
-	printf("APP_MAIN: Initiating systems... \n");
+	ESP_LOGI(TAG, "Initiating systems...");
 	l_sys_init();
-	printf("APP_MAIN: Systems initiation complete. \n");
+	ESP_LOGI(TAG, "Systems initiation complete.");
 
-	printf("APP_MAIN: Initiating tasks... \n");
+	ESP_LOGI(TAG, "APP_MAIN: Initiating tasks...");
 	task_init();
-	printf("APP_MAIN: Tasks initiation complete. \n");
+	ESP_LOGI(TAG, "Tasks initiation complete.");
 
-	printf("APP_MAIN: System is up. \n");
+	ESP_LOGW(TAG, "System is up. \n");
 }
