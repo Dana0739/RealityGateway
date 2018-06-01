@@ -211,7 +211,7 @@ void app_engine() {
 		}
 
 		cur_t = xTaskGetTickCount() * 100 / (portTICK_RATE_MS);
-		printf("%ld \n", cur_t);
+		//printf("%ld \n", cur_t);
 		inter = cur_t - prev_t;
 		prev_t = cur_t;
 
