@@ -72,15 +72,15 @@ QueueHandle_t queue_e, queue_s = NULL;
  * Connection pins
  */
 
-#define ELP 23
-#define ELCP 22
-#define ELCN 21
-#define EL 19
+#define ELP 16
+#define ELCP 33
+#define ELCN 27
+#define EL 25
 
-#define ERP 18
-#define ERCP 5
-#define ERCN 17
-#define ER 16
+#define ERP 17
+#define ERCP 32
+#define ERCN 26
+#define ER 14
 
 /*
  * System constants
@@ -243,34 +243,34 @@ void app_engine() {
 		if ((front_r) && (ctrl_r < 0)) {
 			direct(RIGHT, FWD);
 			front_r = false;
-			ESP_LOGI(TAG, "Engine R is redirected backward.")
+			ESP_LOGW(TAG, "Engine R is redirected backward.")
 		}
 		if ((!front_r) && (ctrl_r > 0)) {
 			direct(RIGHT, BCK);
 			front_r = true;
-			ESP_LOGI(TAG, "Engine R is redirected forward.")
+			ESP_LOGW(TAG, "Engine R is redirected forward.")
 		}
 		if ((front_l) && (ctrl_l < 0)) {
 			direct(LEFT, FWD);
 			front_l = false;
-			ESP_LOGI(TAG, "Engine L is redirected backward.")
+			ESP_LOGW(TAG, "Engine L is redirected backward.")
 		}
 		if ((!front_l) && (ctrl_l > 0)) {
 			direct(LEFT, BCK);
 			front_l = true;
-			ESP_LOGI(TAG, "Engine L is redirected forward.")
+			ESP_LOGW(TAG, "Engine L is redirected forward.")
 		}
 
 		if (engaged_l) {
 			eng_t_l += inter;
-			if (eng_t_l > ctrl_l) {
+			if (eng_t_l > abs(ctrl_l)) {
 				engaged_l = false;
 				turnOff(EL);
 				idl_t_l = 0;
 			}
 		} else {
 			idl_t_l += inter;
-			if (idl_t_l > PER - ctrl_l) {
+			if (idl_t_l > PER - abs(ctrl_l)) {
 				engaged_l = true;
 				turnOn(EL);
 				eng_t_l = 0;
@@ -279,14 +279,14 @@ void app_engine() {
 
 		if (engaged_r) {
 			eng_t_r += inter;
-			if (eng_t_r > ctrl_r) {
+			if (eng_t_r > abs(ctrl_r)) {
 				engaged_r = false;
 				turnOff(ER);
 				idl_t_r = 0;
 			}
 		} else {
 			idl_t_r += inter;
-			if (idl_t_r > PER - ctrl_r) {
+			if (idl_t_r > PER - abs(ctrl_r)) {
 				engaged_r = true;
 				turnOn(ER);
 				eng_t_r = 0;
@@ -310,8 +310,8 @@ void app_engine() {
  * Connections pins
  */
 
-#define EP 2
-#define EY 15
+#define EP 12
+#define EY 19
 
 /*
  * System constants
@@ -416,10 +416,18 @@ void app_servo() {
 //#define WEB_SERVER "192.168.43.248"
 //#define WEB_PORT 8000
 //#define WEB_URL "/JSON.html"
-#define EXAMPLE_WIFI_SSID "TP-LINK_D5D03C"
-#define EXAMPLE_WIFI_PASS "dol99999"
 
-#define WEB_SERVER "192.168.0.104"
+//#define EXAMPLE_WIFI_SSID "TP-LINK_D5D03C"
+//#define EXAMPLE_WIFI_PASS "dol99999"
+//
+//#define WEB_SERVER "192.168.0.104"
+//#define WEB_PORT 8000
+//#define WEB_URL "/JSON.html"
+
+#define EXAMPLE_WIFI_SSID "RFIDLAB"
+#define EXAMPLE_WIFI_PASS "D12X-qnKGrs"
+
+#define WEB_SERVER "192.168.0.117"
 #define WEB_PORT 8000
 #define WEB_URL "/JSON.html"
 
