@@ -219,6 +219,16 @@ void app_engine() {
 		ctrl_l = l;
 		ctrl_r /= 512;
 		ctrl_l /= 512;
+		if (ctrl_r < 0) {
+			ctrl_r = -1 - ctrl_r;
+		} else {
+			ctrl_r = 1 - ctrl_r;
+		}
+		if (ctrl_l < 0) {
+			ctrl_l = -1 - ctrl_l;
+		} else {
+			ctrl_l = 1 - ctrl_l;
+		}
 		ctrl_r *= PER;
 		ctrl_l *= PER;
 
@@ -263,16 +273,20 @@ void app_engine() {
 
 		if (engaged_l) {
 			eng_t_l += inter;
-			if (eng_t_l > abs(ctrl_l)) {
+			if (eng_t_l > abs(ctrl_l) && abs(ctrl_l)) {
 				engaged_l = false;
-				turnOff(EL);
+				if (abs(ctrl_l) != PER) {
+					turnOff(EL);
+				}
 				idl_t_l = 0;
 			}
 		} else {
 			idl_t_l += inter;
 			if (idl_t_l > PER - abs(ctrl_l)) {
 				engaged_l = true;
-				turnOn(EL);
+				if (abs(ctrl_l) != 0) {
+					turnOn(EL);
+				}
 				eng_t_l = 0;
 			}
 		}
@@ -281,14 +295,18 @@ void app_engine() {
 			eng_t_r += inter;
 			if (eng_t_r > abs(ctrl_r)) {
 				engaged_r = false;
-				turnOff(ER);
+				if (abs(ctrl_r) != PER) {
+					turnOff(ER);
+				}
 				idl_t_r = 0;
 			}
 		} else {
 			idl_t_r += inter;
 			if (idl_t_r > PER - abs(ctrl_r)) {
 				engaged_r = true;
-				turnOn(ER);
+				if (abs(ctrl_r) != 0) {
+					turnOn(ER);
+				}
 				eng_t_r = 0;
 			}
 		}
@@ -337,7 +355,7 @@ void servo_init() {
 
 	ESP_LOGW(TAG, "Setting up GPIO...");
 	mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, EP);
-	mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM0B, EY);
+	mcpwm_gpio_init(MCPWM_UNIT_1, MCPWM1A, EY);
 
 	ESP_LOGW(TAG, "Making MCPWM config...");
 	mcpwm_config_t pwm_config;
@@ -349,7 +367,7 @@ void servo_init() {
 
 	ESP_LOGW(TAG, "Setting up MCPWM config...");
 	mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
-	mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_0, &pwm_config);
+	mcpwm_init(MCPWM_UNIT_1, MCPWM_TIMER_1, &pwm_config);
 }
 
 /*
@@ -394,7 +412,7 @@ void app_servo() {
 		angle_y = servo_per_degree_init(yaw);
 
 		mcpwm_set_duty_in_us(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, angle_p);
-		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_0, MCPWM_OPR_A, angle_y);
+		mcpwm_set_duty_in_us(MCPWM_UNIT_1, MCPWM_TIMER_1, MCPWM_OPR_A, angle_y);
 
 		vTaskDelay(1);
 	}
@@ -416,14 +434,12 @@ void app_servo() {
 //#define WEB_SERVER "192.168.43.248"
 //#define WEB_PORT 8000
 //#define WEB_URL "/JSON.html"
-
 //#define EXAMPLE_WIFI_SSID "TP-LINK_D5D03C"
 //#define EXAMPLE_WIFI_PASS "dol99999"
 //
 //#define WEB_SERVER "192.168.0.104"
 //#define WEB_PORT 8000
 //#define WEB_URL "/JSON.html"
-
 #define EXAMPLE_WIFI_SSID "RFIDLAB"
 #define EXAMPLE_WIFI_PASS "D12X-qnKGrs"
 
